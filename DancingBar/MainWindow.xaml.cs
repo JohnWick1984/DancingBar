@@ -33,56 +33,48 @@ namespace DancingBar
             }
         }
 
-        private async void StartButton_Click(object sender, RoutedEventArgs e)
+        private void StartButton_Click(object sender, RoutedEventArgs e)
         {
             startButton.IsEnabled = false;
             cancelButton.IsEnabled = true;
 
             cancellationTokenSource = new CancellationTokenSource();
 
-            await StartProgressBarsAsync();
-            startButton.IsEnabled = true;
+            StartProgressBars();
         }
 
-        private async Task StartProgressBarsAsync()
+        private void StartProgressBars()
         {
             var random = new Random();
 
-            var tasks = new List<Task>();
-
             foreach (var progressBar in progressBars)
             {
-                var cancellationToken = cancellationTokenSource.Token;
-
-                var task = Task.Run(async () =>
+                ThreadPool.QueueUserWorkItem(state =>
                 {
+                    var cancellationToken = cancellationTokenSource.Token;
+
                     while (!cancellationToken.IsCancellationRequested)
                     {
                         int value = random.Next(101);
                         Color color = Color.FromRgb((byte)random.Next(256), (byte)random.Next(256), (byte)random.Next(256));
-                        UpdateProgressBar(progressBar, value, color);
-                        await Task.Delay(50);
+
+                        Dispatcher.Invoke(() =>
+                        {
+                            progressBar.Value = value;
+                            progressBar.Foreground = new SolidColorBrush(color);
+                        });
+
+                        Thread.Sleep(50);
                     }
-                }, cancellationToken);
-
-                tasks.Add(task);
+                });
             }
-
-            await Task.WhenAll(tasks);
-        }
-        private void UpdateProgressBar(ProgressBar progressBar, int value, Color color)
-        {
-            Dispatcher.Invoke(() =>
-            {
-                progressBar.Value = value;
-                progressBar.Foreground = new SolidColorBrush(color);
-            });
         }
 
         private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
             cancellationTokenSource.Cancel();
             cancelButton.IsEnabled = false;
+            startButton.IsEnabled = true; 
         }
     }
 }
